@@ -40,7 +40,6 @@ year is 365.25 days long).
 
 Note: this requires `curl` and `jq` to function properly
 
-
 ## Usage
 
 ```text
@@ -86,3 +85,11 @@ fi
 Code like that could be run hourly (e.g., `@hourly` or `0 * * * *`
 via cron) and do something when a commit is "noticed" on the main
 branch.
+
+Similarly, one may pull the script directly from GitHub and pipe it
+through Bash, such when using as a test as to whether or not to run
+a GitHub Action.
+
+```bash
+[ $(curl -s https://raw.githubusercontent.com/wesley-dean-flexion/repository_updated/main/repository_updated.bash | bash -s -- --repo stedolan/jq --type release --days) -le 1 ]
+```
