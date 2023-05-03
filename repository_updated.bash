@@ -41,17 +41,6 @@
 
 set -euo pipefail
 
-## @var SCRIPT_PATH
-## @brief path to where the script lives
-declare SCRIPT_PATH
-# shellcheck disable=SC2034
-SCRIPT_PATH="${SCRIPT_PATH:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}"
-
-## @var LIBRARY_PATH
-## @brief location where libraries to be included reside
-declare LIBRARY_PATH
-LIBRARY_PATH="${LIBRARY_PATH:-${SCRIPT_PATH}/lib/}"
-
 ## @var DEFAULT_QUERY
 ## @brief default value for query (doesn't matter)
 declare DEFAULT_QUERY
@@ -219,22 +208,6 @@ display_usage() {
   fi
 }
 
-###
-### If there is a library directory (lib/) relative to the
-### script's location by default), then attempt to source
-### the *.bash files located there.
-###
-
-if [ -n "${LIBRARY_PATH}" ] \
-                            && [ -d "${LIBRARY_PATH}" ]; then
-  for library in "${LIBRARY_PATH}"*.bash; do
-    if [ -e "${library}" ]; then
-      # shellcheck disable=SC1090
-      . "${library}"
-    fi
-  done
-fi
-
 ## @fn main()
 ## @brief This is the main program loop.
 ## @details
@@ -331,4 +304,4 @@ main() {
 }
 
 # if we're not being sourced and there's a function named `main`, run it
-[[ "$0" == "${BASH_SOURCE[0]}" ]] && [ "$(type -t "main")" = "function" ] && main "$@"
+(return 0 2>/dev/null) || ( [ "$(type -t "main")" = "function" ] && main "$@" )
