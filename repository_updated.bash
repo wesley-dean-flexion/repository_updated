@@ -92,7 +92,7 @@ time_since_repo_updated() {
   url="https://${api}/repos/${repo}/commits/${branch}"
 
   seconds="$(curl -s "$url" \
-    | jq -r "(now - (.commit.author.date | fromdateiso8601) | trunc)")"
+    | TZ=UTC jq -r "((now | gmtime | mktime) - (.commit.author.date | fromdateiso8601) | trunc)")"
 
   echo "$((seconds / divisor))"
 
