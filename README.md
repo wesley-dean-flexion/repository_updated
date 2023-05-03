@@ -33,6 +33,8 @@ account for months with other than 30 days (the average month
 is 30.25 days), nor does it account for leap years (the average
 year is 365.25 days long).
 
+Note: this requires `curl` and `jq` to function properly
+
 ## Usage
 
 ```text

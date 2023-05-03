@@ -20,7 +20,7 @@
 ##
 ## By default, the script will return the number of seconds since
 ## the repository was last updated.  This value is returned via
-## STDOUT.  The units may be overridden by passing --seconds 
+## STDOUT.  The units may be overridden by passing --seconds
 ## (the default), ## --minutes, --hours, --days, --weeks, --months,
 ## or --years via the CLI.  NOTE: integer division is used; as a
 ## result, any remainder is effectively truncated.  For example,
@@ -30,6 +30,8 @@
 ## account for months with other than 30 days (the average month
 ## is 30.25 days), nor does it account for leap years (the average
 ## year is 365.25 days long).
+##
+## @note: this requires `curl` and `jq` to function properly
 ## @author Wes Dean
 
 set -euo pipefail
@@ -66,7 +68,20 @@ declare DEFAULT_API
 DEFAULT_API="${DEFAULT_API:-api.github.com}"
 
 
-seconds_since_repo_updated() {
+## @fn time_since_repo_updated()
+## @brief return how long it's been since a repo was updated
+## @details
+## This will return how long it's been since a repository
+## was updated via STDOUT.  By default, it queries the GitHub
+## API and returns values in seconds.
+## @retval 0 something went wrong
+## @retval 1 always returns failure
+## @par Example
+## @code
+## printf "It's been %s days since the repo was updated" \
+##   "$(time_since_repo_updated divisor=weeks)"
+## @endcode
+time_since_repo_updated() {
   local "$@"
 
   repo="${repo:-${DEFAULT_REPO}}"
@@ -82,7 +97,6 @@ seconds_since_repo_updated() {
   echo "$((seconds / divisor))"
 
 }
-
 
 ## @fn die
 ## @brief receive a trapped error and display helpful debugging details
@@ -260,7 +274,7 @@ main() {
   ### program logic goes here
   ###
 
-  seconds_since_repo_updated \
+  time_since_repo_updated \
     repo="${repo}" \
     branch="${branch}" \
     divisor="${divisor}" \
