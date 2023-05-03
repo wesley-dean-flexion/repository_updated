@@ -14,9 +14,14 @@ create webhooks in the `stedolan/jq` repository on GitHub, one
 can poll the upstream repository on a cron job and only trigger
 a fresh build when the `jq` repository has been update.
 
-The definition of "updated" in this sense is when a commit has
-been pushed to a particular branch of a particular repository.
-The default branch name used by this script is `main`.  Because
+The definition of "updated" in this sense depends on the type
+of query to perform:
+
+* commit : when a commit has been pushed to a branch
+* release: when a release is generated
+
+The default query used for commit queries is `main` while the
+default query used for release queries is `latest`.  Because
 the script calls GitHub's API, we aren't able to pass regular
 expressions like `(main|master)`
 
@@ -35,13 +40,14 @@ year is 365.25 days long).
 
 Note: this requires `curl` and `jq` to function properly
 
+
 ## Usage
 
 ```text
 --api    : see -a
 -a       : set the API to query
---branch : see -b
--b       : set the branch to be queried
+--query  : see -q
+-q       : set the query to perform
 --days   : see -D
 -D       : respond with days
 --hours  : see -H
@@ -54,8 +60,29 @@ Note: this requires `curl` and `jq` to function properly
 -r       : set the repo to be queried
 --seconds: see -S
 -S       : respond with seconds
+--type   : see -t
+-t       : type of query to perform
 --weeks  : see -W
 -W       : respond with weeks
 --years  : see -Y
 -Y       : respond with years
 ```
+
+### Use in a shell condition
+
+The intended purpose for this script is to be used in conjunction
+with periodic polling (e.g., via cron task) and function differently
+if the target repository has been updated in the given time frame
+vs if the most recent commit is outside of that time frame.  For
+example, consider the following:
+
+```bash
+
+if [ $(./repository_updated --hours --repo owner/repo) -le 1 ] ; then
+  echo "The repository was updated in the last hour"
+fi
+```
+
+Code like that could be run hourly (e.g., `@hourly` or `0 * * * *`
+via cron) and do something when a commit is "noticed" on the main
+branch.

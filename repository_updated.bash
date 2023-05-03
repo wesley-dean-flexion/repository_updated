@@ -12,9 +12,14 @@
 ## can poll the upstream repository on a cron job and only trigger
 ## a fresh build when the `jq` repository has been update.
 ##
-## The definition of "updated" in this sense is when a commit has
-## been pushed to a particular branch of a particular repository.
-## The default branch name used by this script is `main`.  Because
+## The definition of "updated" in this sense depends on the type
+## of query to perform:
+##
+## * commit : when a commit has been pushed to a branch
+## * release: when a release is generated
+##
+## The default query used for commit queries is `main` while the
+## default query used for release queries is `latest`.  Because
 ## the script calls GitHub's API, we aren't able to pass regular
 ## expressions like `(main|master)`
 ##
@@ -47,10 +52,20 @@ SCRIPT_PATH="${SCRIPT_PATH:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)}"
 declare LIBRARY_PATH
 LIBRARY_PATH="${LIBRARY_PATH:-${SCRIPT_PATH}/lib/}"
 
-## @var DEFAULT_BRANCH
-## @brief default branch to query
-declare DEFAULT_BRANCH
-DEFAULT_BRANCH="${DEFAULT_BRANCU:-main}"
+## @var DEFAULT_QUERY
+## @brief default value for query (doesn't matter)
+declare DEFAULT_QUERY
+DEFAULT_QUERY="${DEFAULT_QUERY:-}"
+
+## @var DEFAULT_COMMIT_QUERY
+## @brief default commit query to perform
+declare DEFAULT_COMMIT_QUERY
+DEFAULT_COMMIT_QUERY="${DEFAULT_COMMIT_QUERY:-main}"
+
+## @var DEFAULT_RELEASE_QUERY
+## @brief default release query to perform
+declare DEFAULT_RELEASE_QUERY
+DEFAULT_RELEASE_QUERY="${DEFAULT_RELEASE_QUERY:-latest}"
 
 ## @var DEFAULT_REPO
 ## @brief default repositoy to query
@@ -66,6 +81,11 @@ DEFAULT_DIVISOR="${DEFAULT_DIVISOR:-1}"
 ## @brief default url to the API to query
 declare DEFAULT_API
 DEFAULT_API="${DEFAULT_API:-api.github.com}"
+
+## @var DEFAULT_QUERY_TYPE
+## @brief the default type of query to perform
+declare DEFAULT_QUERY_TYPE
+DEFAULT_QUERY_TYPE="${DEFAULT_QUERY_TYPE:-release}"
 
 
 ## @fn time_since_repo_updated()
@@ -85,14 +105,30 @@ time_since_repo_updated() {
   local "$@"
 
   repo="${repo:-${DEFAULT_REPO}}"
-  branch="${branch:-${DEFAULT_BRANCH}}"
+  query="${query:-${DEFAULT_QUERY}}"
   divisor="${divisor:-${DEFAULT_DIVISOR}}"
   api="${api:-${DEFAULT_API}}"
+  query_type="${query_type:-${DEFAULT_QUERY_TYPE}}"
 
-  url="https://${api}/repos/${repo}/commits/${branch}"
+  case "$query_type" in
+    [Cc]* ) 
+      url="https://${api}/repos/${repo}/commits/${query}"
+      query=".commit.author.date"
+    ;;
 
-  seconds="$(curl -s "$url" \
-    | TZ=UTC jq -r "((now | gmtime | mktime) - (.commit.author.date | fromdateiso8601) | trunc)")"
+    [Rr]* )
+      url="https://${api}/repos/${repo}/releases/${query}"
+      query=".created_at"
+    ;;
+
+    *)
+      echo "Invalid query type '$query_type' provided" 1>&2
+      exit 1
+    ;;
+  esac
+  
+  update_time="$(curl -s "$url" | TZ=UTC jq -r "$query | fromdateiso8601 | trunc")"
+  seconds=$((EPOCHSECONDS - update_time))
 
   echo "$((seconds / divisor))"
 
@@ -213,10 +249,11 @@ main() {
   ### set values from their defaults here
   ###
 
-  branch="${DEFAULT_BRANCH}"
+  query="${DEFAULT_QUERY}"
   repo="${DEFAULT_REPO}"
   api="${DEFAULT_API}"
   divisor="${DEFAULT_DIVISOR}"
+  query_type="${DEFAULT_QUERY_TYPE}"
 
   ###
   ### process long options here
@@ -226,8 +263,9 @@ main() {
     shift
     case "$arg" in
       '--api') set -- "$@" "-a" ;; ##- see -a
-      '--branch') set -- "$@" "-b" ;; ##- see -b
       '--repo') set -- "$@" "-r" ;; ##- see -r
+      '--query') set -- "$@" "-q" ;; ##- see -q
+      '--type') set -- "$@" "-t" ;; ##- see -t
       '--seconds') set -- "$@" "-S" ;; ##- see -S
       '--minutes') set -- "$@" "-M" ;; ##- see -M
       '--hours') set -- "$@" "-H" ;; ##- see -H
@@ -244,11 +282,12 @@ main() {
   ###
 
   OPTIND=1
-  while getopts "SMHDWOYab:r:h" opt; do
+  while getopts "SMHDWOYa:q:r:t:h" opt; do
     case "$opt" in
       'a') api="$OPTARG" ;; ##- set the API to query
-      'b') branch="$OPTARG" ;; ##- set the branch to be queried
+      'q') query="$OPTARG" ;; ##- set the query
       'r') repo="$OPTARG" ;; ##- set the repo to be queried
+      't') query_type="$OPTARG" ;; ##- set the type of query to perform
       'S') divisor=1 ;; ##- respond with seconds
       'M') divisor=60 ;; ##- respond with minutes
       'H') divisor=$((60 * 60)) ;; ##- respond with hours
@@ -270,15 +309,24 @@ main() {
 
   shift "$((OPTIND - 1))"
 
+  if [ -z "$query" ] ; then
+    case "$query_type" in
+      [Cc]* ) query="$DEFAULT_COMMIT_QUERY" ;;
+      [Rr]* ) query="$DEFAULT_RELEASE_QUERY" ;;
+      * ) echo "Invalid query type '$query_type' provided" 1>&2 ; exit 1 ;;
+    esac
+  fi
+
   ###
   ### program logic goes here
   ###
 
   time_since_repo_updated \
     repo="${repo}" \
-    branch="${branch}" \
+    query="${query}" \
     divisor="${divisor}" \
-    api="${api}"
+    api="${api}" \
+    query_type="${query_type}"
 
 }
 
