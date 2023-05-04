@@ -43,28 +43,30 @@ Note: this requires `curl` and `jq` to function properly
 ## Usage
 
 ```text
---api    : see -a
--a       : set the API to query
---query  : see -q
--q       : set the query to perform
---days   : see -D
--D       : respond with days
---hours  : see -H
--H       : respond with hours
---minutes: see -M
---months : see -O
--M       : respond with minutes
--O       : respond with months
---repo   : see -r
--r       : set the repo to be queried
---seconds: see -S
--S       : respond with seconds
---type   : see -t
--t       : type of query to perform
---weeks  : see -W
--W       : respond with weeks
---years  : see -Y
--Y       : respond with years
+--authentication : set the authentication token
+-a               : see -a
+--api            : see -A
+-A               : set the API to query
+--query          : see -q
+-q               : set the query to perform
+--days           : see -D
+-D               : respond with days
+--hours          : see -H
+-H               : respond with hours
+--minutes        : see -M
+--months         : see -O
+-M               : respond with minutes
+-O               : respond with months
+--repo           : see -r
+-r               : set the repo to be queried
+--seconds        : see -S
+-S               : respond with seconds
+--type           : see -t
+-t               : type of query to perform
+--weeks          : see -W
+-W               : respond with weeks
+--years          : see -Y
+-Y               : respond with years
 ```
 
 ### Use in a shell condition
