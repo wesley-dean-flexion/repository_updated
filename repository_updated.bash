@@ -76,6 +76,10 @@ DEFAULT_API="${DEFAULT_API:-api.github.com}"
 declare DEFAULT_QUERY_TYPE
 DEFAULT_QUERY_TYPE="${DEFAULT_QUERY_TYPE:-release}"
 
+## @var DEFAULT_AUTH_TOKEN
+## @brief the defaul authentication token to use
+declare DEFAULT_AUTH_TOKEN
+DEFAULT_AUTH_TOKEN="${DEFAULT_AUTH_TOKEN:-}"
 
 ## @fn time_since_repo_updated()
 ## @brief return how long it's been since a repo was updated
@@ -93,30 +97,44 @@ DEFAULT_QUERY_TYPE="${DEFAULT_QUERY_TYPE:-release}"
 time_since_repo_updated() {
   local "$@"
 
+  declare -a headers
+
+  headers=()
+
   repo="${repo:-${DEFAULT_REPO}}"
   query="${query:-${DEFAULT_QUERY}}"
   divisor="${divisor:-${DEFAULT_DIVISOR}}"
   api="${api:-${DEFAULT_API}}"
   query_type="${query_type:-${DEFAULT_QUERY_TYPE}}"
+  auth_token="${auth_token:-${DEFAULT_AUTH_TOKEN}}"
+
+  headers+=("-H" "Accept: application/vnd.github+json")
+  headers+=("-H" "X-GitHub-Api-Version: 2022-11-28")
+
+  if [ -n "${auth_token}" ]; then
+    headers+=("-H" "Authorization: Bearer ${auth_token}")
+  fi
 
   case "$query_type" in
-    [Cc]* ) 
+    [Cc]*)
       url="https://${api}/repos/${repo}/commits/${query}"
       query=".commit.author.date"
-    ;;
+      ;;
 
-    [Rr]* )
+    [Rr]*)
       url="https://${api}/repos/${repo}/releases/${query}"
       query=".created_at"
-    ;;
+      ;;
 
     *)
       echo "Invalid query type '$query_type' provided" 1>&2
       exit 1
-    ;;
+      ;;
   esac
-  
-  update_time="$(curl -s "$url" | TZ=UTC jq -r "$query | fromdateiso8601 | trunc")"
+
+  # shellcheck disable=SC20866
+  update_time="$(curl -s "${headers[@]}" "$url" | TZ=UTC jq -r "$query | fromdateiso8601 | trunc")"
+
   seconds=$((EPOCHSECONDS - update_time))
 
   echo "$((seconds / divisor))"
@@ -227,6 +245,7 @@ main() {
   api="${DEFAULT_API}"
   divisor="${DEFAULT_DIVISOR}"
   query_type="${DEFAULT_QUERY_TYPE}"
+  auth_token="${DEFAULT_AUTH_TOKEN}"
 
   ###
   ### process long options here
@@ -235,7 +254,8 @@ main() {
   for arg in "$@"; do
     shift
     case "$arg" in
-      '--api') set -- "$@" "-a" ;; ##- see -a
+      '--authentication') set -- "$@" "-a" ;; ##- see -a
+      '--api') set -- "$@" "-A" ;; ##- see -A
       '--repo') set -- "$@" "-r" ;; ##- see -r
       '--query') set -- "$@" "-q" ;; ##- see -q
       '--type') set -- "$@" "-t" ;; ##- see -t
@@ -255,9 +275,10 @@ main() {
   ###
 
   OPTIND=1
-  while getopts "SMHDWOYa:q:r:t:h" opt; do
+  while getopts "SMHDWOYa:A:q:r:t:h" opt; do
     case "$opt" in
-      'a') api="$OPTARG" ;; ##- set the API to query
+      'a') auth_token="$OPTARG" ;; ##- set the authentication token
+      'A') api="$OPTARG" ;; ##- set the API to query
       'q') query="$OPTARG" ;; ##- set the query
       'r') repo="$OPTARG" ;; ##- set the repo to be queried
       't') query_type="$OPTARG" ;; ##- set the type of query to perform
@@ -282,11 +303,14 @@ main() {
 
   shift "$((OPTIND - 1))"
 
-  if [ -z "$query" ] ; then
+  if [ -z "$query" ]; then
     case "$query_type" in
-      [Cc]* ) query="$DEFAULT_COMMIT_QUERY" ;;
-      [Rr]* ) query="$DEFAULT_RELEASE_QUERY" ;;
-      * ) echo "Invalid query type '$query_type' provided" 1>&2 ; exit 1 ;;
+      [Cc]*)  query="$DEFAULT_COMMIT_QUERY" ;;
+      [Rr]*)  query="$DEFAULT_RELEASE_QUERY" ;;
+      *)
+          echo "Invalid query type '$query_type' provided" 1>&2
+                                                                  exit 1
+                                                                         ;;
     esac
   fi
 
@@ -299,9 +323,10 @@ main() {
     query="${query}" \
     divisor="${divisor}" \
     api="${api}" \
-    query_type="${query_type}"
+    query_type="${query_type}" \
+    auth_token="${auth_token}"
 
 }
 
 # if we're not being sourced and there's a function named `main`, run it
-(return 0 2>/dev/null) || ( [ "$(type -t "main")" = "function" ] && main "$@" )
+(return 0 2> /dev/null) || ([ "$(type -t "main")" = "function" ] && main "$@" )
